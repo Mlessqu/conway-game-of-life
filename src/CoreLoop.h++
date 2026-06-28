@@ -11,6 +11,5 @@ namespace sf
 
 namespace automata::core_loop
 {
-        void game_loop(sf::RenderWindow& _render_window);
-
+    void game_loop(sf::RenderWindow& _render_window);
 } // automata

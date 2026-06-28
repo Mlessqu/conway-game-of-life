@@ -13,7 +13,9 @@ FetchContent_Declare(SFML
 FetchContent_MakeAvailable(SFML)
 add_executable(game_of_life src/main.cpp
         include/gaia.h
-        src/CoreLoop.cpp)
+        src/CoreLoop.cpp
+        src/GameGrid.cpp
+        src/GameGrid.h++)
 file(GLOB_RECURSE MAIN_SOURCES CONFIGURE_DEPENDS
         "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
