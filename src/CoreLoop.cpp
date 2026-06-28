@@ -13,48 +13,104 @@ namespace automata::core_loop
     constexpr sf::Color ALIVE_CELL_COLOR = sf::Color::Cyan;
     namespace
     {
-        void draw(sf::RenderWindow& _render_window, const GameGrid& _game_grid);
-        void process_events(sf::RenderWindow& _render_window);
         void draw_grid(sf::RenderWindow& _render_window, int _cell_size);
         void add_line_to_grid(sf::VertexArray& _lines, const sf::Vertex& _start, const sf::Vertex& _end);
         void draw_cells(sf::RenderWindow& _render_window, const GameGrid& _game_grid, int _cell_size);
+        int convert_2d_1d(int _x, int _y, unsigned int _width);
     }
 
 
-    void game_loop(sf::RenderWindow& _render_window)
+    void CoreLoop::game_loop(sf::RenderWindow& _render_window)
     {
         automata::GameGrid grid{_render_window.getSize().x, _render_window.getSize().y, CELL_SIZE};
         while (_render_window.isOpen())
         {
-            process_events(_render_window);
-            grid.simulate_step();
+            process_events(_render_window, grid);
+            if (!is_paused_)
+            {
+                grid.simulate_step();
+            }
             draw(_render_window, grid);
+        }
+    }
+
+
+    bool CoreLoop::is_paused() const
+    {
+        return is_paused_;
+    }
+
+
+    void CoreLoop::set_paused(const bool _is_paused)
+    {
+        is_paused_ = _is_paused;
+    }
+
+
+    void CoreLoop::toggle_pause()
+    {
+        is_paused_ = !is_paused_;
+    }
+
+
+    void CoreLoop::draw(sf::RenderWindow& _render_window, const GameGrid& _game_grid) const
+    {
+        constexpr sf::Color background_color{sf::Color::White};
+        _render_window.clear(background_color);
+        draw_cells(_render_window, _game_grid, CELL_SIZE);
+        draw_grid(_render_window, CELL_SIZE);
+
+        _render_window.display();
+    }
+
+
+    void CoreLoop::process_events(sf::RenderWindow& _render_window, GameGrid& _game_grid)
+    {
+        while (const std::optional event = _render_window.pollEvent())
+        {
+            if (event->is<sf::Event::Closed>())
+            {
+                _render_window.close();
+            }
+
+            if (const auto* key_pressed = event->getIf<sf::Event::KeyPressed>())
+            {
+                if (key_pressed->code == sf::Keyboard::Key::Escape)
+                {
+                    _render_window.close();
+                }
+                if (key_pressed->code == sf::Keyboard::Key::Space)
+                {
+                    toggle_pause();
+                }
+            }
+            if (const auto* mouse_pressed = event->getIf<sf::Event::MouseButtonPressed>())
+            {
+                if (mouse_pressed->button == sf::Mouse::Button::Left && is_paused_)
+                {
+                    //TODO: convert mouse position in pixels, into "global" pixel positions.
+                    //convert global pixel positions into index, should be as simple as dividing by cell size
+                    auto local_mouse_px = sf::Mouse::getPosition(_render_window);
+
+                    const float global_px = local_mouse_px.x;
+                    const float global_py = local_mouse_px.y;
+                    int x = global_px / CELL_SIZE;
+                    int y = global_py / CELL_SIZE;
+
+                    const unsigned int width = _game_grid.get_grid_dimensions().x;
+                    _game_grid.flip_grid_cell(convert_2d_1d(x, y, width));
+                }
+            }
         }
     }
 
 
     namespace
     {
-        void draw(sf::RenderWindow& _render_window, const GameGrid& _game_grid)
+        int convert_2d_1d(int _x, int _y, unsigned int _width)
         {
-            constexpr sf::Color background_color{sf::Color::White};
-            _render_window.clear(background_color);
-            draw_cells(_render_window, _game_grid, CELL_SIZE);
-            draw_grid(_render_window, CELL_SIZE);
-
-            _render_window.display();
+            return _y * _width + _x;
         }
-
-
-        void process_events(sf::RenderWindow& _render_window)
-        {
-            while (const std::optional event = _render_window.pollEvent())
-            {
-                if (event->is<sf::Event::Closed>())
-                    _render_window.close();
-            }
-        }
-
 
         void add_line_to_grid(sf::VertexArray& _lines, const sf::Vertex& _start, const sf::Vertex& _end)
         {

@@ -1,6 +1,5 @@
 #include <SFML/Graphics.hpp>
 #include "CoreLoop.h++"
-#include "GameGrid.h++"
 
 
 int main()
@@ -15,5 +14,6 @@ int main()
 
     sf::RenderWindow window(sf::VideoMode(resolution), window_title);
     window.setFramerateLimit(max_fps/2);
-    automata::core_loop::game_loop(window);
+    automata::core_loop::CoreLoop core_loop;
+    core_loop.game_loop(window);
 }

@@ -93,5 +93,14 @@ namespace automata
     }
 
 
+    void GameGrid::flip_grid_cell(const int _index)
+    {
+        //we check if it's within bounds, we don't care about how mouse maps to index, we expect the right index here that's all
+
+            current_cells_[_index] = !current_cells_[_index];
+
+    }
+
+
     //implementation details here
 } // automata

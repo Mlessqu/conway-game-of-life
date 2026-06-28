@@ -21,7 +21,6 @@ namespace automata
             height_ = row;
             current_cells_ = std::move(initialized_cells);
             future_cells_ = std::move(initialized_cells);
-            randomize_cells();
         }
         int get_index(int _x, int _y) const
         {
@@ -37,7 +36,7 @@ namespace automata
         }
         void simulate_step();
         void randomize_cells(float _alive_probability = 0.2f);
-        void flip_grid();
+        void flip_grid_cell(const int _index);
         std::vector<bool> get_cells() const { return current_cells_; }
         sf::Vector2u get_grid_dimensions() const {return sf::Vector2u(width_, height_);}
     private:
