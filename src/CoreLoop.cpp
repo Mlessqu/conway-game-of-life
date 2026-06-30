@@ -46,6 +46,8 @@ namespace automata::core_loop
         void add_line_to_grid(sf::VertexArray& _lines, const sf::Vertex& _start, const sf::Vertex& _end);
         void draw_cells(sf::RenderWindow& _render_window, const GameGrid& _game_grid, int _cell_size);
         int convert_2d_1d(int _x, int _y, unsigned int _width);
+        sf::Vector2f mouse_screen_pos_to_game_global_pos(sf::RenderWindow& _render_window,
+                                                         sf::Vector2i _mouse_screen_pos);
         sf::Text make_text(const sf::Font& _font, const sf::String& _value, sf::Vector2f _pos,
                            unsigned int _char_size = 18, sf::Color _color = sf::Color::Black);
     }
@@ -169,9 +171,8 @@ namespace automata::core_loop
             {
                 if (mouse_pressed->button == sf::Mouse::Button::Left && is_paused_)
                 {
-                    //TODO: this needs to go into function
-                    auto local_mouse_px = sf::Mouse::getPosition(_render_window);
-                    auto global_mouse_position = _render_window.mapPixelToCoords(local_mouse_px);
+                    auto global_mouse_position =
+                        mouse_screen_pos_to_game_global_pos(_render_window, mouse_pressed->position);
                     const float global_px = global_mouse_position.x;
                     const float global_py = global_mouse_position.y;
                     int x = global_px / CELL_SIZE;
@@ -205,6 +206,13 @@ namespace automata::core_loop
         int convert_2d_1d(int _x, int _y, unsigned int _width)
         {
             return _y * _width + _x;
+        }
+
+
+        sf::Vector2f mouse_screen_pos_to_game_global_pos(sf::RenderWindow& _render_window,
+                                                         const sf::Vector2i _mouse_screen_pos)
+        {
+            return _render_window.mapPixelToCoords(_mouse_screen_pos);
         }
 
 
