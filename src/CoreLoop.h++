@@ -37,8 +37,18 @@ namespace automata::core_loop
         void toggle_pause();
         void set_fixed_time_step(sf::Time _fixed_time_step);
     private:
-        void try_flip_cell_at_pixel(sf::RenderWindow& _render_window, GameGrid& _grid, sf::Vector2f _pixel_position);
+        void try_flip_cell_at_pixel(sf::RenderWindow& _render_window, GameGrid& _grid, sf::Vector2i _pixel_position);
+
         void process_events(sf::RenderWindow& _render_window, GameGrid& _game_grid);
+
+        void handle_key_pressed(sf::RenderWindow& _render_window, const sf::Event::KeyPressed& _key_pressed);
+        void handle_mouse_pressed(sf::RenderWindow& _render_window, GameGrid& _game_grid,
+                                  const sf::Event::MouseButtonPressed& _mouse_pressed);
+        void handle_mouse_released(const sf::Event::MouseButtonReleased& _mouse_released);
+        void handle_mouse_moved(sf::RenderWindow& _render_window, const sf::Event::MouseMoved& _mouse_moved);
+        void handle_mouse_wheel(sf::RenderWindow& _render_window,
+                                const sf::Event::MouseWheelScrolled& _mouse_wheel);
+
         void draw(sf::RenderWindow& _render_window, const GameGrid& _game_grid, const sf::Font& _font, unsigned int _fps) const;
         void change_simulation_fps(int _delta_fps);
         sf::Time fixed_time_step_;

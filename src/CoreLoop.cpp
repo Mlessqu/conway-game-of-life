@@ -26,7 +26,6 @@ namespace automata::core_loop
 
     namespace
     {
-        int convert_2d_1d(int _x, int _y, unsigned int _width);
         sf::Vector2f mouse_screen_pos_to_game_global_pos(sf::RenderWindow& _render_window,
                                                          sf::Vector2i _mouse_screen_pos,
                                                          const sf::View& _view);
@@ -150,6 +149,95 @@ namespace automata::core_loop
     }
 
 
+    void CoreLoop::handle_key_pressed(sf::RenderWindow& _render_window, const sf::Event::KeyPressed& _key_pressed)
+    {
+        if (_key_pressed.code == sf::Keyboard::Key::Escape)
+        {
+            _render_window.close();
+        }
+        if (_key_pressed.code == sf::Keyboard::Key::Space)
+        {
+            toggle_pause();
+        }
+
+        if (_key_pressed.scancode == sf::Keyboard::Scan::NumpadMinus)
+        {
+            change_simulation_fps(-SIMULATION_DELTA_FPS);
+        }
+        if (_key_pressed.scancode == sf::Keyboard::Scan::NumpadPlus)
+        {
+            change_simulation_fps(SIMULATION_DELTA_FPS);
+        }
+    }
+
+
+    void CoreLoop::handle_mouse_pressed(sf::RenderWindow& _render_window, GameGrid& _game_grid,
+                                        const sf::Event::MouseButtonPressed& _mouse_pressed)
+    {
+        if (_mouse_pressed.button == sf::Mouse::Button::Right)
+        {
+            camera_.is_panning_ = true;
+            camera_.last_pan_mouse_position_ = _mouse_pressed.position;
+        }
+
+        if (_mouse_pressed.button == sf::Mouse::Button::Left && is_paused_)
+        {
+            try_flip_cell_at_pixel(_render_window, _game_grid, _mouse_pressed.position);
+        }
+    }
+
+
+    void CoreLoop::handle_mouse_released(const sf::Event::MouseButtonReleased& _mouse_released)
+    {
+        if (_mouse_released.button == sf::Mouse::Button::Right)
+        {
+            camera_.is_panning_ = false;
+        }
+    }
+
+
+    void CoreLoop::handle_mouse_moved(sf::RenderWindow& _render_window, const sf::Event::MouseMoved& _mouse_moved)
+    {
+        if (!camera_.is_panning_)
+        {
+            return;
+        }
+
+        const sf::Vector2f previous_world_position = _render_window.mapPixelToCoords(
+            camera_.last_pan_mouse_position_, camera_.world_view_);
+        const sf::Vector2f current_world_position = _render_window.mapPixelToCoords(
+            _mouse_moved.position, camera_.world_view_);
+
+        camera_.world_view_.move(previous_world_position - current_world_position);
+        camera_.last_pan_mouse_position_ = _mouse_moved.position;
+    }
+
+
+    void CoreLoop::handle_mouse_wheel(sf::RenderWindow& _render_window,
+                                      const sf::Event::MouseWheelScrolled& _mouse_wheel)
+    {
+        if (_mouse_wheel.wheel != sf::Mouse::Wheel::Vertical || _mouse_wheel.delta == 0.f)
+        {
+            return;
+        }
+
+        const float wanted_zoom_factor = _mouse_wheel.delta > 0.f ? 1.f / ZOOM_STEP : ZOOM_STEP;
+        const float new_zoom_level = std::clamp(
+            camera_.zoom_level_ * wanted_zoom_factor,
+            MIN_ZOOM,
+            MAX_ZOOM);
+        const float zoom_factor = new_zoom_level / camera_.zoom_level_;
+
+        const sf::Vector2f mouse_world_before = _render_window.mapPixelToCoords(
+            _mouse_wheel.position, camera_.world_view_);
+        camera_.world_view_.zoom(zoom_factor);
+        camera_.zoom_level_ = new_zoom_level;
+        const sf::Vector2f mouse_world_after = _render_window.mapPixelToCoords(
+            _mouse_wheel.position, camera_.world_view_);
+        camera_.world_view_.move(mouse_world_before - mouse_world_after);
+    }
+
+
     void CoreLoop::process_events(sf::RenderWindow& _render_window, GameGrid& _game_grid)
     {
         while (const std::optional event = _render_window.pollEvent())
@@ -159,104 +247,41 @@ namespace automata::core_loop
                 _render_window.close();
             }
 
-            if (const auto* key_pressed = event->getIf<sf::Event::KeyPressed>())
+            if (const sf::Event::KeyPressed* key_pressed = event->getIf<sf::Event::KeyPressed>())
             {
-                if (key_pressed->code == sf::Keyboard::Key::Escape)
-                {
-                    _render_window.close();
-                }
-                if (key_pressed->code == sf::Keyboard::Key::Space)
-                {
-                    toggle_pause();
-                }
-
-                if (key_pressed->scancode == sf::Keyboard::Scan::NumpadMinus)
-                {
-                    change_simulation_fps(-SIMULATION_DELTA_FPS);
-                }
-                if (key_pressed->scancode == sf::Keyboard::Scan::NumpadPlus)
-                {
-                    change_simulation_fps(SIMULATION_DELTA_FPS);
-                }
+                handle_key_pressed(_render_window, *key_pressed);
             }
             if (const auto* mouse_pressed = event->getIf<sf::Event::MouseButtonPressed>())
             {
-                if (mouse_pressed->button == sf::Mouse::Button::Right)
-                {
-                    camera_.is_panning_ = true;
-                    camera_.last_pan_mouse_position_ = mouse_pressed->position;
-                }
-
-                if (mouse_pressed->button == sf::Mouse::Button::Left && is_paused_)
-                {
-                    auto global_mouse_position = mouse_screen_pos_to_game_global_pos(
-                        _render_window, mouse_pressed->position, camera_.world_view_);
-                    try_flip_cell_at_pixel(_render_window, _game_grid, global_mouse_position);
-                    int x = static_cast<int>(std::floor(global_mouse_position.x / CELL_SIZE));
-                    int y = static_cast<int>(std::floor(global_mouse_position.y / CELL_SIZE));
-
-                    const sf::Vector2u grid_dimensions = _game_grid.get_grid_dimensions();
-                    if (x >= 0 && y >= 0 &&
-                        x < static_cast<int>(grid_dimensions.x) &&
-                        y < static_cast<int>(grid_dimensions.y))
-                    {
-                        _game_grid.flip_grid_cell(convert_2d_1d(x, y, grid_dimensions.x));
-                    }
-                }
+                handle_mouse_pressed(_render_window, _game_grid, *mouse_pressed);
             }
 
             if (const auto* mouse_released = event->getIf<sf::Event::MouseButtonReleased>())
             {
-                if (mouse_released->button == sf::Mouse::Button::Right)
-                {
-                    camera_.is_panning_ = false;
-                }
+                handle_mouse_released(*mouse_released);
             }
 
             if (const auto* mouse_moved = event->getIf<sf::Event::MouseMoved>())
             {
-                if (camera_.is_panning_)
-                {
-                    const sf::Vector2f previous_world_position = _render_window.mapPixelToCoords(
-                        camera_.last_pan_mouse_position_, camera_.world_view_);
-                    const sf::Vector2f current_world_position = _render_window.mapPixelToCoords(
-                        mouse_moved->position, camera_.world_view_);
-
-                    camera_.world_view_.move(previous_world_position - current_world_position);
-                    camera_.last_pan_mouse_position_ = mouse_moved->position;
-                }
+                handle_mouse_moved(_render_window, *mouse_moved);
             }
 
             if (const auto* mouse_wheel = event->getIf<sf::Event::MouseWheelScrolled>())
             {
-                if (mouse_wheel->wheel == sf::Mouse::Wheel::Vertical && mouse_wheel->delta != 0.f)
-                {
-                    const float wanted_zoom_factor = mouse_wheel->delta > 0.f ? 1.f / ZOOM_STEP : ZOOM_STEP;
-                    const float new_zoom_level = std::clamp(
-                        camera_.zoom_level_ * wanted_zoom_factor,
-                        MIN_ZOOM,
-                        MAX_ZOOM);
-                    const float zoom_factor = new_zoom_level / camera_.zoom_level_;
-
-                    const sf::Vector2f mouse_world_before = _render_window.mapPixelToCoords(
-                        mouse_wheel->position, camera_.world_view_);
-                    camera_.world_view_.zoom(zoom_factor);
-                    camera_.zoom_level_ = new_zoom_level;
-                    const sf::Vector2f mouse_world_after = _render_window.mapPixelToCoords(
-                        mouse_wheel->position, camera_.world_view_);
-                    camera_.world_view_.move(mouse_world_before - mouse_world_after);
-                }
+                handle_mouse_wheel(_render_window, *mouse_wheel);
             }
         }
     }
 
 
     void CoreLoop::try_flip_cell_at_pixel(sf::RenderWindow& _render_window, GameGrid& _grid,
-                                          sf::Vector2f _pixel_position)
+                                          const sf::Vector2i _pixel_position)
     {
-        //convert px to world position using camera worldview
-        //convert world position to grid cords
-        //call grid.flip_cell(x,y);
+        const sf::Vector2f world_position = mouse_screen_pos_to_game_global_pos(
+            _render_window, _pixel_position, camera_.world_view_);
+        const int x = static_cast<int>(std::floor(world_position.x / CELL_SIZE));
+        const int y = static_cast<int>(std::floor(world_position.y / CELL_SIZE));
+        _grid.flip_cell(x, y);
     }
 
 
@@ -267,13 +292,6 @@ namespace automata::core_loop
 
     namespace
     {
-
-        int convert_2d_1d(int _x, int _y, unsigned int _width)
-        {
-            return _y * _width + _x;
-        }
-
-
         sf::Vector2f mouse_screen_pos_to_game_global_pos(sf::RenderWindow& _render_window,
                                                          const sf::Vector2i _mouse_screen_pos,
                                                          const sf::View& _view)

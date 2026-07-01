@@ -42,7 +42,7 @@ namespace rendering
 
     void draw_cells(sf::RenderWindow& _render_window, const automata::GameGrid& _game_grid, int _cell_size)
     {
-        const std::vector<bool> cells = _game_grid.get_cells();
+        const std::vector<bool>& cells = _game_grid.get_cells();
         const int width = _game_grid.get_grid_dimensions().x;
 
 

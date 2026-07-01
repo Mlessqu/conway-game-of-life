@@ -5,6 +5,7 @@
 #include "GameGrid.h++"
 
 #include <random>
+#include <utility>
 
 namespace automata
 {
@@ -67,7 +68,7 @@ namespace automata
     }
 
 
-    int GameGrid::check_neighbours(unsigned int _index)
+    int GameGrid::check_neighbours(const unsigned int _index) const
     {
         int x = _index % width_;
         int y = _index / width_;
@@ -134,18 +135,24 @@ namespace automata
 
     void GameGrid::flip_grid_cell(const int _index)
     {
-        //we check if it's within bounds, we don't care about how mouse maps to index, we expect the right index here that's all
-
-            current_cells_[_index] = !current_cells_[_index];
-
+        if (_index < 0 || static_cast<size_t>(_index) >= current_cells_.size())
+        {
+            return;
+        }
+        current_cells_[_index] = !current_cells_[_index];
     }
 
 
     void GameGrid::flip_cell(const int _x, const int _y)
     {
-        //TODO: check bounds here
-        if (_x < 0 || _y < 0) return;
-        if (_x >= width_ || _y >=height_) return;
+        if (_x < 0 || _y < 0)
+        {
+            return;
+        }
+        if (static_cast<unsigned int>(_x) >= width_ || static_cast<unsigned int>(_y) >= height_)
+        {
+            return;
+        }
         flip_grid_cell(get_index(_x, _y));
     }
 

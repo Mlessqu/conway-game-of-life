@@ -22,7 +22,7 @@ namespace automata
         const std::vector<bool>& get_cells() const;
         sf::Vector2u get_grid_dimensions() const;
     private:
-        int check_neighbours(unsigned int _index);
+        int check_neighbours(unsigned int _index) const;
         int calculate_grid_size() const;
 
         unsigned int width_;
