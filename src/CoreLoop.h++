@@ -6,6 +6,8 @@
 
 #include <SFML/Graphics.hpp>
 
+#include "Camera.h++"
+
 namespace sf
 {
     class Font;
@@ -19,13 +21,7 @@ namespace automata
 
 namespace automata::core_loop
 {
-    struct Camera
-    {
-        sf::View world_view_;
-        bool is_panning_ = false;
-        sf::Vector2i last_pan_mouse_position_;
-        float zoom_level_ = 1.f;
-    };
+
     class CoreLoop
     {
     public:

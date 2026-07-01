@@ -4,25 +4,12 @@
 
 #include "GameGrid.h++"
 
+#include <algorithm>
 #include <random>
 #include <utility>
 
 namespace automata
 {
-    GameGrid::GameGrid(const unsigned int _window_pixel_width, const unsigned int _window_pixel_height,
-                       const unsigned int _cell_size): cell_size_(_cell_size)
-    {
-        const int row = _window_pixel_height / cell_size_;
-        const int col = _window_pixel_width / cell_size_;
-        const int size = row * col;
-        std::vector<bool> initialized_cells(size, false);
-        width_ = col;
-        height_ = row;
-        current_cells_ = std::move(initialized_cells);
-        future_cells_ = std::move(initialized_cells);
-    }
-
-
     int GameGrid::get_index(const int _x, const int _y) const
     {
         return _y * width_ + _x;
@@ -31,13 +18,57 @@ namespace automata
 
     void GameGrid::resize_grid(int _new_width, int _new_height)
     {
-        //TODO:
+        if (_new_width <= 0 || _new_height <= 0)
+        {
+            return;
+        }
+
+        const unsigned int new_width = static_cast<unsigned int>(_new_width);
+        const unsigned int new_height = static_cast<unsigned int>(_new_height);
+        std::vector<bool> new_cells(new_width * new_height, false);
+
+        const unsigned int copy_width = std::min(width_, new_width);
+        const unsigned int copy_height = std::min(height_, new_height);
+        for (unsigned int y = 0; y < copy_height; ++y)
+        {
+            for (unsigned int x = 0; x < copy_width; ++x)
+            {
+                new_cells[y * new_width + x] = current_cells_[y * width_ + x];
+            }
+        }
+
+        width_ = new_width;
+        height_ = new_height;
+        current_cells_ = std::move(new_cells);
+        future_cells_.assign(current_cells_.size(), false);
     }
 
 
     unsigned int GameGrid::get_grid_size() const
     {
         return current_cells_.size();
+    }
+
+
+    GameGrid::GameGrid(const unsigned int _width, const unsigned int _height,
+                       const unsigned int _cell_size) : width_(_width), height_(_height), cell_size_(_cell_size),
+                                                        current_cells_(width_ * height_, false),
+                                                        future_cells_(width_ * height_, false)
+    {
+    }
+
+
+    bool GameGrid::apply_rules(const bool _is_alive, const int _neighbours)
+    {
+        if (!_is_alive)
+        {
+            if (_neighbours == 3) return true;
+            return false;
+        }
+
+        if (_neighbours < 2) return false;
+        if (_neighbours == 2 || _neighbours == 3) return true;
+        if (_neighbours > 3) return false;
     }
 
 
@@ -51,18 +82,7 @@ namespace automata
             int alive_neighbours = check_neighbours(current_cell_index);
             //apply rules of life based on amount of alive neightbours
             const bool is_alive = current_cells_[current_cell_index];
-            //1 rule for dead cell
-            if (!is_alive && (alive_neighbours == 3))
-            {
-                future_cells_[current_cell_index] = true;
-            }
-            else
-            {
-                //and 3 rules for alive cells
-                if (alive_neighbours < 2) future_cells_[current_cell_index] = false;
-                if (alive_neighbours == 2 || alive_neighbours == 3) future_cells_[current_cell_index] = true;
-                if (alive_neighbours > 3) future_cells_[current_cell_index] = false;
-            }
+            future_cells_[current_cell_index] = apply_rules(is_alive,alive_neighbours);
         }
         std::swap(current_cells_, future_cells_);
     }
@@ -70,51 +90,33 @@ namespace automata
 
     int GameGrid::check_neighbours(const unsigned int _index) const
     {
-        int x = _index % width_;
-        int y = _index / width_;
+        if (width_ == 0 || height_ == 0)
+        {
+            return 0;
+        }
 
-        const bool has_left = x > 0;
-        const bool has_right = x < (width_-1);
-        const bool has_up = y > 0;
-        const bool has_down = y < (height_-1);
+        const int width = static_cast<int>(width_);
+        const int height = static_cast<int>(height_);
+        const int x = static_cast<int>(_index % width_);
+        const int y = static_cast<int>(_index / width_);
 
         int alive_neighbours = 0;
+        for (int offset_y = -1; offset_y <= 1; ++offset_y)
+        {
+            for (int offset_x = -1; offset_x <= 1; ++offset_x)
+            {
+                if (offset_x == 0 && offset_y == 0)
+                {
+                    continue;
+                }
 
-        if (has_up && has_left)
-        {
-            if (current_cells_[_index - 1 - width_]) ++alive_neighbours;
-        }
-        if (has_up)
-        {
-            if (current_cells_[_index - width_]) ++alive_neighbours;
-        }
-        if (has_up && has_right)
-        {
-            if (current_cells_[_index - width_ + 1]) ++alive_neighbours;
-        }
-
-
-        if (has_left)
-        {
-            if (current_cells_[_index - 1]) ++alive_neighbours;
-        }
-        if (has_right)
-        {
-            if (current_cells_[_index + 1]) ++alive_neighbours;
-        }
-
-
-        if (has_down && has_left)
-        {
-            if (current_cells_[_index + width_ - 1]) ++alive_neighbours;
-        }
-        if (has_down)
-        {
-            if (current_cells_[_index + width_]) ++alive_neighbours;
-        }
-        if (has_down && has_right)
-        {
-            if (current_cells_[_index + width_ + 1]) ++alive_neighbours;
+                const int neighbour_x = (x + offset_x + width) % width;
+                const int neighbour_y = (y + offset_y + height) % height;
+                if (current_cells_[neighbour_y * width + neighbour_x])
+                {
+                    ++alive_neighbours;
+                }
+            }
         }
         return alive_neighbours;
     }

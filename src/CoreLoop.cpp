@@ -14,13 +14,11 @@
 namespace automata::core_loop
 {
     constexpr unsigned int CELL_SIZE = 50;
-    constexpr sf::Color ALIVE_CELL_COLOR = sf::Color::Cyan;
     constexpr int SIMULATION_DELTA_FPS = 5;
+    constexpr unsigned SIMULATION_WIDTH = 1000u;
+    constexpr unsigned SIMULATION_HEIGHT = 1000u;
     constexpr int MINIMUM_FPS_ALLOWED = 1;
     constexpr int MAX_SIM_FPS_ALLOWED = 240;
-    constexpr float ZOOM_STEP = 1.1f;
-    constexpr float MIN_ZOOM = 0.25f;
-    constexpr float MAX_ZOOM = 4.f;
 
 
 
@@ -56,15 +54,13 @@ namespace automata::core_loop
 
     void CoreLoop::game_loop(sf::RenderWindow& _render_window, const sf::Font& _font, const sf::Time _fixed_time_step)
     {
-        camera_.world_view_ = _render_window.getDefaultView();
-        camera_.is_panning_ = false;
-        camera_.zoom_level_ = 1.f;
+        camera_.reset(_render_window);
         fixed_time_step_ = _fixed_time_step;
         if (fixed_time_step_ <= sf::Time::Zero)
         {
             fixed_time_step_ = sf::seconds(1.f / static_cast<float>(MINIMUM_FPS_ALLOWED));
         }
-        automata::GameGrid grid{_render_window.getSize().x, _render_window.getSize().y, CELL_SIZE};
+        GameGrid grid{SIMULATION_WIDTH, SIMULATION_HEIGHT, CELL_SIZE};
         sf::Clock frame_clock;
         sf::Time accumulated_time = sf::Time::Zero;
         while (_render_window.isOpen())
@@ -176,8 +172,7 @@ namespace automata::core_loop
     {
         if (_mouse_pressed.button == sf::Mouse::Button::Right)
         {
-            camera_.is_panning_ = true;
-            camera_.last_pan_mouse_position_ = _mouse_pressed.position;
+            camera_.start_pan(_mouse_pressed.position);
         }
 
         if (_mouse_pressed.button == sf::Mouse::Button::Left && is_paused_)
@@ -191,25 +186,14 @@ namespace automata::core_loop
     {
         if (_mouse_released.button == sf::Mouse::Button::Right)
         {
-            camera_.is_panning_ = false;
+            camera_.stop_pan();
         }
     }
 
 
     void CoreLoop::handle_mouse_moved(sf::RenderWindow& _render_window, const sf::Event::MouseMoved& _mouse_moved)
     {
-        if (!camera_.is_panning_)
-        {
-            return;
-        }
-
-        const sf::Vector2f previous_world_position = _render_window.mapPixelToCoords(
-            camera_.last_pan_mouse_position_, camera_.world_view_);
-        const sf::Vector2f current_world_position = _render_window.mapPixelToCoords(
-            _mouse_moved.position, camera_.world_view_);
-
-        camera_.world_view_.move(previous_world_position - current_world_position);
-        camera_.last_pan_mouse_position_ = _mouse_moved.position;
+        camera_.pan_to(_render_window, _mouse_moved.position);
     }
 
 
@@ -221,20 +205,7 @@ namespace automata::core_loop
             return;
         }
 
-        const float wanted_zoom_factor = _mouse_wheel.delta > 0.f ? 1.f / ZOOM_STEP : ZOOM_STEP;
-        const float new_zoom_level = std::clamp(
-            camera_.zoom_level_ * wanted_zoom_factor,
-            MIN_ZOOM,
-            MAX_ZOOM);
-        const float zoom_factor = new_zoom_level / camera_.zoom_level_;
-
-        const sf::Vector2f mouse_world_before = _render_window.mapPixelToCoords(
-            _mouse_wheel.position, camera_.world_view_);
-        camera_.world_view_.zoom(zoom_factor);
-        camera_.zoom_level_ = new_zoom_level;
-        const sf::Vector2f mouse_world_after = _render_window.mapPixelToCoords(
-            _mouse_wheel.position, camera_.world_view_);
-        camera_.world_view_.move(mouse_world_before - mouse_world_after);
+        camera_.zoom_at(_render_window, _mouse_wheel.position, _mouse_wheel.delta);
     }
 
 

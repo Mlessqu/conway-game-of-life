@@ -18,6 +18,8 @@ add_executable(game_of_life src/main.cpp
         src/GameGrid.h++
         src/GridRenderer.cpp
         src/GridRenderer.h++
+        src/Camera.cpp
+        src/Camera.h++
 )
 file(GLOB_RECURSE MAIN_SOURCES CONFIGURE_DEPENDS
         "${CMAKE_SOURCE_DIR}/src/*.cpp"

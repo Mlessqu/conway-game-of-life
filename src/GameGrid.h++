@@ -11,7 +11,7 @@ namespace automata
 {
     struct GameGrid
     {
-        GameGrid(const unsigned int _window_pixel_width, const unsigned int _window_pixel_height, const unsigned int _cell_size);
+        GameGrid(unsigned _width, const unsigned int _height, const unsigned int _cell_size);
         int get_index(int _x, int _y) const;
         void resize_grid(int _new_width, int _new_height);
         unsigned int get_grid_size() const;
@@ -23,6 +23,7 @@ namespace automata
         sf::Vector2u get_grid_dimensions() const;
     private:
         int check_neighbours(unsigned int _index) const;
+        bool apply_rules(const bool _is_alive,const int _neighbours);
         int calculate_grid_size() const;
 
         unsigned int width_;
