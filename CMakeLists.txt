@@ -15,7 +15,10 @@ add_executable(game_of_life src/main.cpp
         include/gaia.h
         src/CoreLoop.cpp
         src/GameGrid.cpp
-        src/GameGrid.h++)
+        src/GameGrid.h++
+        src/GridRenderer.cpp
+        src/GridRenderer.h++
+)
 file(GLOB_RECURSE MAIN_SOURCES CONFIGURE_DEPENDS
         "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )

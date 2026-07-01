@@ -115,6 +115,7 @@ namespace automata
         {
             if (current_cells_[_index + width_ + 1]) ++alive_neighbours;
         }
+        return alive_neighbours;
     }
 
 
@@ -142,6 +143,9 @@ namespace automata
 
     void GameGrid::flip_cell(const int _x, const int _y)
     {
+        //TODO: check bounds here
+        if (_x < 0 || _y < 0) return;
+        if (_x >= width_ || _y >=height_) return;
         flip_grid_cell(get_index(_x, _y));
     }
 
