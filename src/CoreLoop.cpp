@@ -6,6 +6,7 @@
 #include<SFML/Graphics.hpp>
 
 #include <algorithm>
+#include <cmath>
 
 #include "GameGrid.h++"
 
@@ -16,6 +17,23 @@ namespace automata::core_loop
     constexpr int SIMULATION_DELTA_FPS = 5;
     constexpr int MINIMUM_FPS_ALLOWED = 1;
     constexpr int MAX_SIM_FPS_ALLOWED = 240;
+    constexpr float ZOOM_STEP = 1.1f;
+    constexpr float MIN_ZOOM = 0.25f;
+    constexpr float MAX_ZOOM = 4.f;
+
+
+    namespace
+    {
+        void draw_grid(sf::RenderWindow& _render_window, const GameGrid& _game_grid, int _cell_size);
+        void add_line_to_grid(sf::VertexArray& _lines, const sf::Vertex& _start, const sf::Vertex& _end);
+        void draw_cells(sf::RenderWindow& _render_window, const GameGrid& _game_grid, int _cell_size);
+        int convert_2d_1d(int _x, int _y, unsigned int _width);
+        sf::Vector2f mouse_screen_pos_to_game_global_pos(sf::RenderWindow& _render_window,
+                                                         sf::Vector2i _mouse_screen_pos,
+                                                         const sf::View& _view);
+        sf::Text make_text(const sf::Font& _font, const sf::String& _value, sf::Vector2f _pos,
+                           unsigned int _char_size = 18, sf::Color _color = sf::Color::Black);
+    }
 
 
     void CoreLoop::change_simulation_fps(int _delta_fps)
@@ -24,11 +42,11 @@ namespace automata::core_loop
         int current_sim_fps;
         if (current_step_seconds > 0.f)
         {
-            current_sim_fps= static_cast<int>(1.f / current_step_seconds);
+            current_sim_fps = static_cast<int>(1.f / current_step_seconds);
         }
         else
         {
-            current_sim_fps= MINIMUM_FPS_ALLOWED;
+            current_sim_fps = MINIMUM_FPS_ALLOWED;
         }
 
 
@@ -40,21 +58,11 @@ namespace automata::core_loop
     }
 
 
-    namespace
-    {
-        void draw_grid(sf::RenderWindow& _render_window, int _cell_size);
-        void add_line_to_grid(sf::VertexArray& _lines, const sf::Vertex& _start, const sf::Vertex& _end);
-        void draw_cells(sf::RenderWindow& _render_window, const GameGrid& _game_grid, int _cell_size);
-        int convert_2d_1d(int _x, int _y, unsigned int _width);
-        sf::Vector2f mouse_screen_pos_to_game_global_pos(sf::RenderWindow& _render_window,
-                                                         sf::Vector2i _mouse_screen_pos);
-        sf::Text make_text(const sf::Font& _font, const sf::String& _value, sf::Vector2f _pos,
-                           unsigned int _char_size = 18, sf::Color _color = sf::Color::Black);
-    }
-
-
     void CoreLoop::game_loop(sf::RenderWindow& _render_window, const sf::Font& _font, const sf::Time _fixed_time_step)
     {
+        camera_.world_view_ = _render_window.getDefaultView();
+        camera_.is_panning_ = false;
+        camera_.zoom_level_ = 1.f;
         fixed_time_step_ = _fixed_time_step;
         if (fixed_time_step_ <= sf::Time::Zero)
         {
@@ -118,12 +126,19 @@ namespace automata::core_loop
     {
         constexpr sf::Color background_color{sf::Color::White};
         _render_window.clear(background_color);
+
+
+        _render_window.setView(camera_.world_view_);
         draw_cells(_render_window, _game_grid, CELL_SIZE);
-        draw_grid(_render_window, CELL_SIZE);
+        draw_grid(_render_window, _game_grid, CELL_SIZE);
+
+
         sf::Text pause_text = make_text(_font, is_paused_ ? "Paused" : "Running", {10.f, 10.f});
         sf::Text fps_text = make_text(_font, "FPS: " + std::to_string(_fps), {10.f, 32.f});
         sf::Text simulation_step = make_text(
             _font, "Sim step time in ms:" + std::to_string(fixed_time_step_.asMilliseconds()), {10.f, 52.f});
+
+        _render_window.setView(_render_window.getDefaultView());
         _render_window.draw(pause_text);
         _render_window.draw(fps_text);
         _render_window.draw(simulation_step);
@@ -169,17 +184,69 @@ namespace automata::core_loop
             }
             if (const auto* mouse_pressed = event->getIf<sf::Event::MouseButtonPressed>())
             {
+                if (mouse_pressed->button == sf::Mouse::Button::Right)
+                {
+                    camera_.is_panning_ = true;
+                    camera_.last_pan_mouse_position_ = mouse_pressed->position;
+                }
+
                 if (mouse_pressed->button == sf::Mouse::Button::Left && is_paused_)
                 {
-                    auto global_mouse_position =
-                        mouse_screen_pos_to_game_global_pos(_render_window, mouse_pressed->position);
-                    const float global_px = global_mouse_position.x;
-                    const float global_py = global_mouse_position.y;
-                    int x = global_px / CELL_SIZE;
-                    int y = global_py / CELL_SIZE;
+                    auto global_mouse_position = mouse_screen_pos_to_game_global_pos(
+                        _render_window, mouse_pressed->position, camera_.world_view_);
+                    int x = static_cast<int>(std::floor(global_mouse_position.x / CELL_SIZE));
+                    int y = static_cast<int>(std::floor(global_mouse_position.y / CELL_SIZE));
 
-                    const unsigned int width = _game_grid.get_grid_dimensions().x;
-                    _game_grid.flip_grid_cell(convert_2d_1d(x, y, width));
+                    const sf::Vector2u grid_dimensions = _game_grid.get_grid_dimensions();
+                    if (x >= 0 && y >= 0 &&
+                        x < static_cast<int>(grid_dimensions.x) &&
+                        y < static_cast<int>(grid_dimensions.y))
+                    {
+                        _game_grid.flip_grid_cell(convert_2d_1d(x, y, grid_dimensions.x));
+                    }
+                }
+            }
+
+            if (const auto* mouse_released = event->getIf<sf::Event::MouseButtonReleased>())
+            {
+                if (mouse_released->button == sf::Mouse::Button::Right)
+                {
+                    camera_.is_panning_ = false;
+                }
+            }
+
+            if (const auto* mouse_moved = event->getIf<sf::Event::MouseMoved>())
+            {
+                if (camera_.is_panning_)
+                {
+                    const sf::Vector2f previous_world_position = _render_window.mapPixelToCoords(
+                        camera_.last_pan_mouse_position_, camera_.world_view_);
+                    const sf::Vector2f current_world_position = _render_window.mapPixelToCoords(
+                        mouse_moved->position, camera_.world_view_);
+
+                    camera_.world_view_.move(previous_world_position - current_world_position);
+                    camera_.last_pan_mouse_position_ = mouse_moved->position;
+                }
+            }
+
+            if (const auto* mouse_wheel = event->getIf<sf::Event::MouseWheelScrolled>())
+            {
+                if (mouse_wheel->wheel == sf::Mouse::Wheel::Vertical && mouse_wheel->delta != 0.f)
+                {
+                    const float wanted_zoom_factor = mouse_wheel->delta > 0.f ? 1.f / ZOOM_STEP : ZOOM_STEP;
+                    const float new_zoom_level = std::clamp(
+                        camera_.zoom_level_ * wanted_zoom_factor,
+                        MIN_ZOOM,
+                        MAX_ZOOM);
+                    const float zoom_factor = new_zoom_level / camera_.zoom_level_;
+
+                    const sf::Vector2f mouse_world_before = _render_window.mapPixelToCoords(
+                        mouse_wheel->position, camera_.world_view_);
+                    camera_.world_view_.zoom(zoom_factor);
+                    camera_.zoom_level_ = new_zoom_level;
+                    const sf::Vector2f mouse_world_after = _render_window.mapPixelToCoords(
+                        mouse_wheel->position, camera_.world_view_);
+                    camera_.world_view_.move(mouse_world_before - mouse_world_after);
                 }
             }
         }
@@ -210,9 +277,10 @@ namespace automata::core_loop
 
 
         sf::Vector2f mouse_screen_pos_to_game_global_pos(sf::RenderWindow& _render_window,
-                                                         const sf::Vector2i _mouse_screen_pos)
+                                                         const sf::Vector2i _mouse_screen_pos,
+                                                         const sf::View& _view)
         {
-            return _render_window.mapPixelToCoords(_mouse_screen_pos);
+            return _render_window.mapPixelToCoords(_mouse_screen_pos, _view);
         }
 
 
@@ -223,23 +291,25 @@ namespace automata::core_loop
         }
 
 
-        void draw_grid(sf::RenderWindow& _render_window, const int _cell_size)
+        void draw_grid(sf::RenderWindow& _render_window, const GameGrid& _game_grid, const int _cell_size)
         {
-            sf::Vector2u window_size = _render_window.getSize();
+            const sf::Vector2u grid_dimensions = _game_grid.get_grid_dimensions();
+            const int grid_width_pixels = static_cast<int>(grid_dimensions.x * _cell_size);
+            const int grid_height_pixels = static_cast<int>(grid_dimensions.y * _cell_size);
             sf::VertexArray grid_lines{sf::PrimitiveType::Lines};
             sf::Color grid_color{sf::Color::Black};
-            for (int i = 0; i < window_size.x; i += _cell_size) //vertical
+            for (int i = 0; i <= grid_width_pixels; i += _cell_size) //vertical
             {
                 float kolumny = static_cast<float>(i);
-                float wysokosc = static_cast<float>(window_size.y);
+                float wysokosc = static_cast<float>(grid_height_pixels);
                 const sf::Vertex start = sf::Vertex(sf::Vector2f{kolumny, 0}, grid_color);
                 const sf::Vertex end = sf::Vertex(sf::Vector2f{kolumny, wysokosc}, grid_color);
                 add_line_to_grid(grid_lines, start, end);
             }
-            for (int i = 0; i < window_size.y; i += _cell_size) //horizontal
+            for (int i = 0; i <= grid_height_pixels; i += _cell_size) //horizontal
             {
                 const float wiersze = static_cast<float>(i);
-                const float szerokosc = static_cast<float>(window_size.x);
+                const float szerokosc = static_cast<float>(grid_width_pixels);
                 const sf::Vertex start = sf::Vertex(sf::Vector2f{0, wiersze}, grid_color);
                 const sf::Vertex end = sf::Vertex(sf::Vector2f{szerokosc, wiersze}, grid_color);
                 add_line_to_grid(grid_lines, start, end);

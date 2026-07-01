@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <SFML/System/Time.hpp>
+#include <SFML/Graphics.hpp>
 
 namespace sf
 {
@@ -19,6 +19,13 @@ namespace automata
 
 namespace automata::core_loop
 {
+    struct Camera
+    {
+        sf::View world_view_;
+        bool is_panning_ = false;
+        sf::Vector2i last_pan_mouse_position_;
+        float zoom_level_ = 1.f;
+    };
     class CoreLoop
     {
     public:
@@ -35,5 +42,6 @@ namespace automata::core_loop
         void change_simulation_fps(int _delta_fps);
         sf::Time fixed_time_step_;
         bool is_paused_ = false;
+        Camera camera_;
     };
 } // automata

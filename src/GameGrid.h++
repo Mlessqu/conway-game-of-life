@@ -11,39 +11,19 @@ namespace automata
 {
     struct GameGrid
     {
-        GameGrid(const unsigned int _window_pixel_width, const unsigned int _window_pixel_height, const unsigned int _cell_size): cell_size_(_cell_size)
-        {
-            const int row = _window_pixel_height / cell_size_;
-            const int col = _window_pixel_width / cell_size_;
-            const int size = row*col;
-            std::vector<bool> initialized_cells(size, false);
-            width_ = col;
-            height_ = row;
-            current_cells_ = std::move(initialized_cells);
-            future_cells_ = std::move(initialized_cells);
-        }
-        int get_index(int _x, int _y) const
-        {
-            return _y * width_ + _x;
-        }
-        void resize_grid(int _new_width, int _new_height)
-        {
-                //TODO:
-        }
-        unsigned int get_grid_size() const
-        {
-            return current_cells_.size();
-        }
+        GameGrid(const unsigned int _window_pixel_width, const unsigned int _window_pixel_height, const unsigned int _cell_size);
+        int get_index(int _x, int _y) const;
+        void resize_grid(int _new_width, int _new_height);
+        unsigned int get_grid_size() const;
         void simulate_step();
         void randomize_cells(float _alive_probability = 0.2f);
-        void flip_grid_cell(const int _index);
-        std::vector<bool> get_cells() const { return current_cells_; }
-        sf::Vector2u get_grid_dimensions() const {return sf::Vector2u(width_, height_);}
+        void flip_grid_cell(int _index);
+        void flip_cell(int _x,int _y);
+        const std::vector<bool>& get_cells() const;
+        sf::Vector2u get_grid_dimensions() const;
     private:
-        int calculate_grid_size()
-        {
-            return width_*height_;
-        }
+        int check_neighbours(unsigned int _index);
+        int calculate_grid_size() const;
 
         unsigned int width_;
         unsigned int height_;
